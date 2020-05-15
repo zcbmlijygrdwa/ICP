@@ -3,6 +3,11 @@
 #include "device_launch_parameters.h"  
 #include "header.h"  
 
+#include <stdio.h>
+#include <float.h>
+
+#include "/home/zhenyu/catkin_ws/src/pointcloud-georeference/valk_lidar/shared/include/shared/test.hpp"
+
 
 void cudaFindNearest(int numBlocks, int threadsPerBlock, double *P, double *Q, int nP, int nQ, double *Q_select, int *min_index_device);
 __global__ void kernelIterativeClosestPoint(double *P, double *Q, int nP, int nQ, int pointsPerThread, double *Q_select_device,int *min_index_device);
@@ -69,24 +74,32 @@ void icp(Eigen::MatrixXd cloud_target,
 	cudaMemcpy(Q_device, Q_host, q_size, cudaMemcpyHostToDevice);
 
 	/* set cuda block*/
-	int numBlocks = 32;
-	int threadsPerBlock =64;
+	//int numBlocks = 32;
+	//int threadsPerBlock =64;
+	int numBlocks = 128;
+	int threadsPerBlock = 1024;
 
 	int i = 1;
 	while (i < Iter.Maxiterate)
 	{
-		printf("µÚ%d´Îµü´ú\n", i);
+		printf("iteration : %d\n", i);
 		//gpu
 		/*copy selectP data from memory to cuda*/
 		cudaMemcpy(P_device, P_host, p_size, cudaMemcpyHostToDevice);
 		/* Find cloest poiny in cloudsource*/
+        printv("here is time for find corr");
+        tic();
 		cudaFindNearest(numBlocks, threadsPerBlock, P_device, Q_device, nP, nQ, Q_selectdevice, min_index_device);
+        toc();
 		/* copy the Q_select*/
 		cudaError_t status = cudaMemcpy(Q_select, Q_selectdevice, p_size, cudaMemcpyDeviceToHost);
 		if (status == cudaSuccess) { printf("ÓÐÐ§"); }
 		//cpu
 		//2.Çó½â¶ÔÓ¦µÄ¸ÕÌå±ä»»
+        printv("here is time for get transform");
+        tic();
 		transformation_matrix = GetTransform(P_host, Q_select, nP);
+        toc();
 		//3.¶ÔP×ö±ä»»µÃµ½ÐÂµÄµãÔÆ
 		Transform(P_host, transformation_matrix, nP, P_host);
 
@@ -242,20 +255,20 @@ void Getinfo()
 
 	int count;
 	cudaGetDeviceCount(&count);
-	printf("ÏÔ¿¨ËùÖ§³ÖµÄcuda´¦ÀíÆ÷ÊýÁ¿£º%d\n", count);
+    printf("¿¿¿¿¿¿cuda¿¿¿¿¿¿%d\n", count);
 	for (int i = 0; i < count; ++i) {
-		cudaGetDeviceProperties(&prop, i);
-		printf("----µÚ%d¸ö´¦ÀíÆ÷µÄ»ù±¾ÐÅÏ¢----\n", i + 1);
-		printf("´¦ÀíÆ÷Ãû³Æ£º%s \n", prop.name);
-		printf("¼ÆËãÄÜÁ¦£º%d.%d\n", prop.major, prop.minor);
-		printf("Éè±¸ÉÏÈ«¾ÖÄÚ´æ×ÜÁ¿£º%dMB\n", prop.totalGlobalMem / 1024 / 1024);
-		printf("Éè±¸ÉÏ³£Á¿ÄÚ´æ×ÜÁ¿£º%dKB\n", prop.totalConstMem / 1024);
-		printf("Ò»¸öÏß³Ì¿éÖÐ¿ÉÊ¹ÓÃµÄ×î´ó¹²ÏíÄÚ´æ£º%dKB\n", prop.sharedMemPerBlock / 1024);
-		printf("Ò»¸öÏß³ÌÊø°üº¬µÄÏß³ÌÊýÁ¿£º%d\n", prop.warpSize);
-		printf("Ò»¸öÏß³Ì¿éÖÐ¿É°üº¬µÄ×î´óÏß³ÌÊýÁ¿£º%d\n", prop.maxThreadsPerBlock);
-		printf("¶àÎ¬Ïß³Ì¿éÊý×éÖÐÃ¿Ò»Î¬¿É°üº¬µÄ×î´óÏß³ÌÊýÁ¿£º(%d,%d,%d)\n", prop.maxThreadsDim[0],
+        cudaGetDeviceProperties(&prop, i);
+		printf("----¿%d¿¿¿¿¿¿¿¿¿----\n", i + 1);
+		printf("processor name%s \n", prop.name);
+		printf("computation power%d.%d\n", prop.major, prop.minor);
+		printf("global memory:%dMB\n", prop.totalGlobalMem / 1024 / 1024);
+		printf("constat memory:%dKB\n", prop.totalConstMem / 1024);
+		printf("¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿%dKB\n", prop.sharedMemPerBlock / 1024);
+		printf("¿¿¿¿¿¿¿¿¿¿¿¿¿%d\n", prop.warpSize);
+		printf("maxThreadsPerBlock: %d\n", prop.maxThreadsPerBlock);
+		printf("¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿(%d,%d,%d)\n", prop.maxThreadsDim[0],
 			prop.maxThreadsDim[1], prop.maxThreadsDim[2]);
-		printf("Ò»¸öÏß³Ì¸ñÖÐÃ¿Ò»Î¬¿É°üº¬µÄ×î´óÏß³Ì¿éÊýÁ¿£º(%d,%d,%d)\n", prop.maxGridSize[0],
+		printf("¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿(%d,%d,%d)\n", prop.maxGridSize[0],
 			prop.maxGridSize[1], prop.maxGridSize[2]);
 	}
 }
