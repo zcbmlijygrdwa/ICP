@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <float.h>
 
-#include "/home/zhenyu/catkin_ws/src/pointcloud-georeference/valk_lidar/shared/include/shared/test.hpp"
+#include "../../include/shared/test.hpp"
 
 
 void cudaFindNearest(int numBlocks, int threadsPerBlock, double *P, double *Q, int nP, int nQ, double *Q_select, int *min_index_device);
@@ -38,7 +38,7 @@ inline void cudaAssert(cudaError_t code, const char *file, int line, bool abort 
 Iter迭代参数
 输出参数：transformation_matrix 转换参数
 ********************************************************/
-void icp(Eigen::MatrixXd cloud_target,
+void feezhu_icp(Eigen::MatrixXd cloud_target,
 	Eigen::MatrixXd cloud_source,
 	const Iter_para Iter, Eigen::Matrix4d &transformation_matrix)
 {
@@ -48,6 +48,8 @@ void icp(Eigen::MatrixXd cloud_target,
 	int nQ = cloud_source.cols();
 	int p_size = sizeof(double) * nP * 3;//p size
 	int q_size = sizeof(double) * nQ * 3;
+    //printv(nP);
+    //printv(nQ);
 
 	/*Data on host*/
 	Eigen::MatrixXd P (cloud_target);
@@ -74,32 +76,32 @@ void icp(Eigen::MatrixXd cloud_target,
 	cudaMemcpy(Q_device, Q_host, q_size, cudaMemcpyHostToDevice);
 
 	/* set cuda block*/
-	//int numBlocks = 32;
-	//int threadsPerBlock =64;
-	int numBlocks = 128;
-	int threadsPerBlock = 1024;
+	int numBlocks = 32;
+	int threadsPerBlock =64;
+	//int numBlocks = 128;
+	//int threadsPerBlock = 1024;
 
 	int i = 1;
 	while (i < Iter.Maxiterate)
 	{
-		printf("iteration : %d\n", i);
+		//printf("iteration : %d\n", i);
 		//gpu
 		/*copy selectP data from memory to cuda*/
 		cudaMemcpy(P_device, P_host, p_size, cudaMemcpyHostToDevice);
 		/* Find cloest poiny in cloudsource*/
-        printv("here is time for find corr");
-        tic();
+        //printv("here is time for find corr");
+        //tic();
 		cudaFindNearest(numBlocks, threadsPerBlock, P_device, Q_device, nP, nQ, Q_selectdevice, min_index_device);
-        toc();
+        //toc();
 		/* copy the Q_select*/
 		cudaError_t status = cudaMemcpy(Q_select, Q_selectdevice, p_size, cudaMemcpyDeviceToHost);
 		if (status == cudaSuccess) { printf("有效"); }
 		//cpu
 		//2.求解对应的刚体变换
-        printv("here is time for get transform");
-        tic();
+        //printv("here is time for get transform");
+        //tic();
 		transformation_matrix = GetTransform(P_host, Q_select, nP);
-        toc();
+        //toc();
 		//3.对P做变换得到新的点云
 		Transform(P_host, transformation_matrix, nP, P_host);
 
@@ -109,10 +111,18 @@ void icp(Eigen::MatrixXd cloud_target,
 		//cuTransform(numBlocks, threadsPerBlock, P_device, transformation_matrix, nP);
 
 		//4.迭代上述过程直至收敛
+        double error = abs(transformation_matrix(0,3))
+        + abs(transformation_matrix(1,3))
+        + abs(transformation_matrix(2,3))
+        + abs(transformation_matrix(0,0) - 1)
+        + abs(transformation_matrix(1,1) - 1)
+        + abs(transformation_matrix(2,2) - 1);
+        //printv(error);
 		//if (abs(error) < Iter.ControlN*Iter.acceptrate*Iter.threshold)//80%点误差小于0.01
-		//{
-		//	break;
-		//}
+		if (abs(error) < 0.00001)
+		{
+			break;
+		}
 		i++;
 	}
 	transformation_matrix = GetTransform(P_origin, P_host,nP);
@@ -195,7 +205,7 @@ Eigen::Matrix4d GetTransform(double *Pselect, double *Qselect, int nsize)
 	//求点云中心并移到中心点
 	Eigen::VectorXd MeanP = ConP.rowwise().mean();
 	Eigen::VectorXd MeanQ = ConQ.rowwise().mean();
-	cout << MeanP <<endl<< MeanQ << endl;
+	//cout << MeanP <<endl<< MeanQ << endl;
 	Eigen::MatrixXd ReP = ConP.colwise() - MeanP;
 	Eigen::MatrixXd ReQ = ConQ.colwise() - MeanQ;
 	//求解旋转矩阵
@@ -214,7 +224,7 @@ Eigen::Matrix4d GetTransform(double *Pselect, double *Qselect, int nsize)
 	Eigen::MatrixXd Transmatrix = Eigen::Matrix4d::Identity();
 	Transmatrix.block(0, 0, 3, 3) = R;
 	Transmatrix.block(0, 3, 3, 1) = T;
-	cout << Transmatrix << endl;
+	///cout << Transmatrix << endl;
 	return Transmatrix;
 }
 

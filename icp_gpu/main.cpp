@@ -1,7 +1,7 @@
 //#pragma once
 #include <fstream> 
 #include "header.h"
-#include "/home/zhenyu/catkin_ws/src/pointcloud-georeference/valk_lidar/shared/include/shared/test.hpp"
+#include "/home/osdk/catkin_ws/src/pointcloud-georeference/valk_lidar/shared/include/shared/test.hpp"
 
 Eigen::MatrixXd Transform(const Eigen::MatrixXd ConP, const Eigen::MatrixXd Transmatrix)
 {
@@ -25,7 +25,7 @@ void print4x4Matrix(const Eigen::Matrix4d & matrix)
 Eigen::MatrixXd ReadFile(std::string FileName)
 {
 
-	Eigen::MatrixXd cloud(3,N);
+	Eigen::MatrixXd cloud(3,LINE_NUM);
 	
 	std::ifstream fin(FileName);
 	if (!fin.is_open())
@@ -35,7 +35,7 @@ Eigen::MatrixXd ReadFile(std::string FileName)
 	}
 	int i = 0;
 	//while (!fin.eof())
-    for(int i = 0 ; i < N ; i++)
+    for(int i = 0 ; i < LINE_NUM; i++)
 	{
         printv(i);
 		fin >> cloud(0,i) >> cloud(1,i) >> cloud(2,i);
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 	// read point cloud from txt file
     printv(1);
 	//Eigen::MatrixXd cloud_in = ReadFile("/home/zhenyu/ICP/data/bunny.txt");
-	Eigen::MatrixXd cloud_in = ReadFile("/home/zhenyu/ICP/data/bunny_backup.txt");
+	Eigen::MatrixXd cloud_in = ReadFile("/home/osdk/catkin_ws/src/pointcloud-georeference/valk_lidar/shared/ICP/data/bunny.txt");
     printv(2);
 	Eigen::MatrixXd cloud_icp;
 
@@ -82,10 +82,10 @@ int main(int argc, char** argv)
 	
 	//icp algorithm
 	Eigen::Matrix4d matrix_icp;
-	Iter_para iter{ N,30,0.00001,0.8 };
+	Iter_para iter{ LINE_NUM,100,0.00001,0.8 };
 	Getinfo();
 	long begin = clock();
-	icp(cloud_in, cloud_icp, iter, matrix_icp);
+	feezhu_icp(cloud_in, cloud_icp, iter, matrix_icp);
 	std::cout << "GPU time used" << int(((double)(clock() - begin)) / CLOCKS_PER_SEC * 1000) << "ms " << std::endl;
 	cout << "matrix_icp = \n"<<matrix_icp << endl;
 

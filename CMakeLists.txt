@@ -10,13 +10,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 ########################################
 # CUDA Setup
 ########################################
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+message(${CMAKE_CURRENT_LIST_DIR})
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
 link_directories(${CUDA_LIBRARY_DIRS})
 
-include(${CMAKE_MODULE_PATH}/CUDAComputesList.cmake)
+#include(${CMAKE_MODULE_PATH}/CUDAComputesList.cmake)
 
 list(APPEND CUDA_NVCC_FLAGS ${CUDA_GENERATE_CODE})
 list(APPEND CUDA_NVCC_FLAGS_DEBUG "-g -G")
@@ -51,4 +52,18 @@ icp_gpu/kernel.cu
 
 target_link_libraries(icp_gpu
 ${PCL_LIBRARIES}
+)
+
+# add the library 
+set(CUDA_NVCC_FLAGS "--expt-relaxed-constexpr")
+cuda_add_library(feezhu_icp
+icp_gpu/kernel.cu
+)
+
+target_link_libraries(feezhu_icp
+${PCL_LIBRARIES}
+)
+
+target_include_directories(feezhu_icp PUBLIC
+icp_gpu
 )
